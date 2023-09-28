@@ -85,34 +85,44 @@ void ConfigureUART() {
 void vLedBlinker(void *pvParameters) {
   struct xParam *param = (struct xParam *)
       pvParameters; // cast conversion of the parameters to the correct format
-  uint32_t ledStatus;
-  TickType_t xDelay =
-      pdMS_TO_TICKS(((param->xLed + 1) / 1) * 1000); // Converting from MS to S
-  TickType_t xLastWakeTime = xTaskGetTickCount();
+  TickType_t xDelay = pdMS_TO_TICKS(((param->xLed + 1) / 1) *
+                                    1000); // Converting from MS to TICKS
+  TickType_t xLastWakeTime =
+      xTaskGetTickCount(); // Get the ticks since vTaskStartScheduler begun.
   while (1) {
 
     vTaskDelayUntil(&xLastWakeTime,
-                    xDelay); // Wait for specified amount of
-    param->xLedStatus = !param->xLedStatus;
+                    xDelay);                // Wait for specified amount of
+    param->xLedStatus = !param->xLedStatus; // Toggle the LED status
     if ((param->xLed == 1 || param->xLed == 2) &&
-        (xButtonPress[param->xLed - 1]) == 1) { // Skip
+        (xButtonPress[param->xLed - 1]) ==
+            1) { // Skip if true xButtonPress[param->xLed - 1], the -1 is there
+                 // since the array is 0 to 1 and it can only bet param->xLed =
+                 // 1 || 2.
     } else {
 
-      LEDWrite(led_array[param->xLed],
-               !(param->xLedStatus) *
-                   (led_array[param->xLed])); // Toggle the led
+      LEDWrite(
+          led_array[param->xLed],
+          !(param->xLedStatus) *
+              (led_array[param->xLed])); // Toggle the led, it is either 1 or 0
 
-      // if (!(param->xLedStatus)) {
-      //   UARTprintf("LED [%s] ON\n", enum_type_names[param->xLed]);
-      // } else {
-      //
-      //   UARTprintf("LED [%s] OFF\n", enum_type_names[param->xLed]);
-      // }
+      if (!(param->xLedStatus)) {
+        UARTprintf("LED [%s] ON\n", enum_type_names[param->xLed]);
+      } else {
+
+        UARTprintf("LED [%s] OFF\n", enum_type_names[param->xLed]);
+      }
     }
   }
   vPortFree(param);
 }
 
+static void buttonTimerCallback(TimerHandle_t xTimer) {
+  struct xParam *xParam =
+      pvTimerGetTimerID(xTimer); // Get the ID of the timer to know which timer
+                                 // has expired. and steal the arguments.
+  xButtonPress[xParam->xButton] = 0; // Reset the flag
+}
 /*================================================================*/
 /*           Task to check for button presses                     */
 /*================================================================*/
@@ -120,19 +130,20 @@ void vButtonPress(void *pvParameters) {
   unsigned char ucDelta, ucState;
   struct xParam *param = (struct xParam *)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  TickType_t xDelay10Seconds = pdMS_TO_TICKS(10000);
+  const TickType_t xDelay10Seconds = pdMS_TO_TICKS(10000);
 
+  TimerHandle_t buttonTimer =
+      xTimerCreate((const char *)"10STimer", xDelay10Seconds, pdFALSE,
+                   (void *)param, buttonTimerCallback);
   while (1) {
     ucState = ButtonsPoll(&ucDelta, 0);
 
-    if ((button_array[param->xButton] & ucDelta) &&
-        (button_array[param->xButton] & ucState)) { // Check for button presses
+    if (BUTTON_PRESSED(button_array[param->xButton], ucState,
+                       ucDelta)) { // Check for button presses
       UARTprintf("Button pressed: %d\n", button_array[param->xButton]);
       xButtonPress[param->xButton] = 1;
-      // xLed is 1 or 2
       LEDWrite(led_array[param->xLed], led_array[param->xLed]);
-      vTaskDelayUntil(&xLastWakeTime, xDelay10Seconds);
-      xButtonPress[param->xButton] = 0;
+      xTimerStart(buttonTimer, 0);
     }
   }
   vPortFree(param);
@@ -182,7 +193,7 @@ int main(void) {
         i; // xLed is used to toggle the correct LED defined in the led_array
     param->xButton = i; // not used in vLedBlinker
     param->xLedStatus = 0;
-    xLedReturned = xTaskCreate(vLedBlinker, "Blink", 100, (void *)param, 3,
+    xLedReturned = xTaskCreate(vLedBlinker, "Blink", 64, (void *)param, 3,
                                &xHandle_LED[i]);
 
     if (xLedReturned == pdPASS) {
@@ -199,7 +210,7 @@ int main(void) {
     param->xButton = j;
     param->xLed = j + 1; // will toggle the leds in the middle
     param->xLedStatus = 0;
-    xButtonReturned = xTaskCreate(vButtonPress, "Button", 100, (void *)param, 3,
+    xButtonReturned = xTaskCreate(vButtonPress, "Button", 64, (void *)param, 3,
                                   &xHandle_BUTTON);
     if (xButtonReturned == pdPASS) {
       UARTprintf("vButtonTask: %d created\n", j + 1);
