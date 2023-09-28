@@ -80,12 +80,12 @@ void vTaskCHighPrio(void *pvParameters) {
           pdTRUE) { // try to take the semaphore
         UARTprintf("Task C: WORKING\n");
         vWorker(5000); // work for 5 seconds
-        UARTprintf("Task C: COMPLETED\nGiving semaphore\n");
+        UARTprintf("Task C: COMPLETED: Giving semaphore\n");
         workingFlag = 1;
 
       } else if (printFlag != 1) {
 
-        UARTprintf("Task C: Failed taking semaphore\nGetting blocked!\n");
+        UARTprintf("Task C: Failed taking semaphore: Getting blocked!\n");
         printFlag = 1;
       }
     }
@@ -116,7 +116,7 @@ void vTaskALowPrio(void *pvParameters) {
 
     if (workingFlag == 0) {
 
-      UARTprintf("Task A taking semaphore\n");
+      UARTprintf("Task A: taking semaphore\n");
       if ((xReturn = xSemaphoreTake(s, (TickType_t)0)) == pdTRUE) {
 
         UARTprintf("Task A: WORKING\n");
@@ -151,6 +151,7 @@ int main(void) {
                                     SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480),
                                    120000000);
   ConfigureUART();
+  UARTprintf("\033[2J");
 
   BaseType_t xTaskAReturn =
       xTaskCreate(vTaskALowPrio, "Task A", 64, (void *)NULL, 1, NULL);
