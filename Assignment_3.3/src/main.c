@@ -56,46 +56,61 @@ void vWorker(uint32_t runTime) {
   TickType_t xRunTime = pdMS_TO_TICKS(runTime);
   while (1) {
     TickType_t currentTickTime = xTaskGetTickCount();
-    if (currentTickTime - tickIN >= xRunTime) {
+    if (currentTickTime - tickIN >=
+        xRunTime) { // Keep working until the specified amount of systemticks
+                    // has occured
+
       break;
     }
   }
   // UARTprintf("WORKER TICK TIME: %d\n", xRunTime);
 }
 /*================================================================*/
-void vTaskCHighPrio(void *pvParameters) { // 5s periodic
+void vTaskCHighPrio(void *pvParameters) {
+  // Task C Periodic with 6 seconds
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xDelay = pdMS_TO_TICKS(6000); // 5 second delay
+  const TickType_t xDelay = pdMS_TO_TICKS(6000); // 6 second delay
   uint32_t xExecStart, xExecEnd, xExecTime, xExecSemPre, xExecSemPost,
       xExecSemTime;
 
   while (1) {
 
-    vTaskDelayUntil(&xLastWakeTime, xDelay); // Delay for 5 ms
+    vTaskDelayUntil(&xLastWakeTime, xDelay); // Delay for 6 s
     UARTprintf("Task C: STARTING\n");
-    xExecStart = xTaskGetTickCount();
-    xExecSemPre = xTaskGetTickCount();
+    xExecStart =
+        xTaskGetTickCount(); // Measure the time when Task C starts executing
+
+    xExecSemPre =
+        xTaskGetTickCount(); // Measure the time before the semaphore is taken
 
     if (xSemaphoreTake(s,
                        (TickType_t)portMAX_DELAY) ==
         pdTRUE) { // try to take the semaphore
-      xExecSemPost = xTaskGetTickCount();
+      xExecSemPost =
+          xTaskGetTickCount(); // Measure the time it took to take the semaphore
+
       xExecSemTime =
-          floor(((xExecSemPost - xExecSemPre) * 1000.0) / configTICK_RATE_HZ);
+          floor(((xExecSemPost - xExecSemPre) * 1000.0) /
+                configTICK_RATE_HZ); // Calculate the total time it took to take
+                                     // the semaphore in MS
+
       UARTprintf("Task C: WORKING: SEMTAKE [%d] MS\n", xExecSemTime);
-      vWorker(3000); // work for 5 seconds
+      vWorker(3000); // work for 3 seconds
       xExecEnd = xTaskGetTickCount();
       xExecTime =
-          floor(((xExecEnd - xExecStart) * 1000.0) / configTICK_RATE_HZ);
+          floor(((xExecEnd - xExecStart) * 1000.0) /
+                configTICK_RATE_HZ); // Calculate the total execution time in MS
 
-      if (xExecTime > 6000) {
+      if (xExecTime >
+          6000) { // If the total execution time exceeds the periodicity of the
+                  // task, it has missed the DEADLINE
         UARTprintf("Task C: COMPLETED: MISSED DEADLINE BY: [%d] MS: SEMGIVE\n",
                    xExecTime - 6000);
-      } else {
+      } else { // Task COMPLETED before DEADLINE
 
         UARTprintf("Task C: COMPLETED [%d] MS: SEMGIVE\n", xExecTime);
       }
-      while (xSemaphoreGive(s) != pdTRUE) {
+      while (xSemaphoreGive(s) != pdTRUE) { // Give the semaphore
       }
 
     } else {
@@ -105,23 +120,28 @@ void vTaskCHighPrio(void *pvParameters) { // 5s periodic
   }
 }
 /*================================================================*/
-void vTaskBMiddlePrio(void *pvParameters) { // Periodic 13s
+void vTaskBMiddlePrio(void *pvParameters) {
+  // Task B Periodic 13s
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xDelay = pdMS_TO_TICKS(13000); // Delay for 13 seconds
   uint32_t xExecStart, xExecEnd, xExecTime;
   while (1) {
     vTaskDelayUntil(&xLastWakeTime, xDelay);
     UARTprintf("Task B: STARTED\n");
-    xExecStart = xTaskGetTickCount();
+    xExecStart =
+        xTaskGetTickCount(); // Get the starting time for the task execution
     UARTprintf("Task B: WORKING\n");
-    vWorker(4000); // work for 5 seconds
-    xExecEnd = xTaskGetTickCount();
-    xExecTime = floor(((xExecEnd - xExecStart) * 1000.0) / configTICK_RATE_HZ);
+    vWorker(4000); // work for 4 seconds
+    xExecEnd =
+        xTaskGetTickCount(); // Measure the time it took to complete the work
+    xExecTime = floor(((xExecEnd - xExecStart) * 1000.0) /
+                      configTICK_RATE_HZ); // Calculate the execution time to ms
 
-    if (xExecTime > 13000) {
+    if (xExecTime > 13000) { // If the task took longer than 13 seonds the
+                             // DEADLINE was missed
       UARTprintf("Task B: COMPLETED: MISSED DEADLINE BY: [%d] MS",
                  xExecTime - 13000);
-    } else {
+    } else { // Task completed before DEADLINE
 
       UARTprintf("Task B: COMPLETED [%d] MS\n", xExecTime);
     }
@@ -129,9 +149,9 @@ void vTaskBMiddlePrio(void *pvParameters) { // Periodic 13s
 }
 /*================================================================*/
 void vTaskALowPrio(void *pvParameters) {
-
+  // Task A periodicity 11 Seconds
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xDelay = pdMS_TO_TICKS(11000); // Delay for 2 seconds
+  const TickType_t xDelay = pdMS_TO_TICKS(11000); // Delay for 11 seconds
 
   uint32_t xExecStart, xExecEnd, xExecTime, xExecSemPre, xExecSemPost,
       xExecSemTime;
@@ -139,27 +159,35 @@ void vTaskALowPrio(void *pvParameters) {
 
     vTaskDelayUntil(&xLastWakeTime, xDelay);
     UARTprintf("Task A: STARTING\n");
-    xExecStart = xTaskGetTickCount();
-    xExecSemPre = xTaskGetTickCount();
+    xExecStart =
+        xTaskGetTickCount(); // Get the time when task A started executing
+    xExecSemPre = xTaskGetTickCount(); // Get the time for when the semaphore is
+                                       // trying to get taken
     if ((xSemaphoreTake(s, (TickType_t)portMAX_DELAY)) == pdTRUE) {
-      xExecSemPost = xTaskGetTickCount();
-      xExecSemTime =
-          floor(((xExecSemPost - xExecSemPre) * 1000.0) / configTICK_RATE_HZ);
+      xExecSemPost =
+          xTaskGetTickCount(); // get the time after the semaphore was taken
+      xExecSemTime = floor(((xExecSemPost - xExecSemPre) * 1000.0) /
+                           configTICK_RATE_HZ); // Calculate the time it took to
+                                                // take the semaphore
 
       UARTprintf("Task A: SEMTAKE [%d] MS\n", xExecSemTime);
       UARTprintf("Task A: WORKING\n");
-      vWorker(4000); // Do some work for 5 seconds
-      xExecEnd = xTaskGetTickCount();
+      vWorker(4000);                  // Do some work for 4 seconds
+      xExecEnd = xTaskGetTickCount(); // Get the time after the task has
+                                      // finished working
       xExecTime =
-          floor(((xExecEnd - xExecStart) * 1000.0) / configTICK_RATE_HZ);
-      if (xExecTime > 11000) {
+          floor(((xExecEnd - xExecStart) * 1000.0) /
+                configTICK_RATE_HZ); // Calculate the time it took for the task
+                                     // to finish executing in ms
+      if (xExecTime > 11000) { // If the task took longer than 11 seconds we
+                               // have missed the DEADLINE
         UARTprintf("Task A: COMPLETED: MISSED DEADLINE BY: [%d] MS: SEMGIVE\n",
                    xExecTime - 11000);
-      } else {
+      } else { // Otherwise the task was completed before DEADLINE
 
         UARTprintf("Task A: COMPLETED [%d] MS: SEMGIVE\n", xExecTime);
       }
-      while (xSemaphoreGive(s) != pdTRUE) {
+      while (xSemaphoreGive(s) != pdTRUE) { // Give back the semaphore
       }
     } else {
       UARTprintf("Task A: Unable to take sem\n");
@@ -186,7 +214,7 @@ int main(void) {
                                     SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480),
                                    120000000);
   ConfigureUART();
-  UARTprintf("\033[2J");
+  UARTprintf("\033[2J"); // Clear the screen
 
   BaseType_t xTaskAReturn =
       xTaskCreate(vTaskALowPrio, "Task A", 200, (void *)NULL, 1, NULL);
@@ -202,7 +230,9 @@ int main(void) {
   if (s == NULL) {
     UARTprintf("Unable to create semaphore\n");
   }
-  while (xSemaphoreGive(s) != pdTRUE) {
+  while (xSemaphoreGive(s) !=
+         pdTRUE) { // The binary semaphore is initialized to an empty state, and
+                   // needs to be given before it can be used
   }
   vTaskStartScheduler();
 }

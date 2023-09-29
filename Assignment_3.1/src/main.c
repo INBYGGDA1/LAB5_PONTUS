@@ -152,9 +152,9 @@ void vButtonPress(void *pvParameters) {
 void GPIO_init() {
   PinoutSet(false, false);
   ButtonsInit();
-  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION);
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION); // Enable module for pins N & F
   SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-  while (!SysCtlPeripheralReady(SYSCTL_PERIPH_GPION)) {
+  while (!SysCtlPeripheralReady(SYSCTL_PERIPH_GPION)) { // Make sure they are on before continuing
     ;
   }
   while (!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF)) {
