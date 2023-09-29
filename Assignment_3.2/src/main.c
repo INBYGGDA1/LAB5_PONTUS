@@ -12,6 +12,7 @@
  */
 
 /*================================================================*/
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -62,72 +63,87 @@ void vWorker(uint32_t runTime) {
   // UARTprintf("WORKER TICK TIME: %d\n", xRunTime);
 }
 /*================================================================*/
-void vTaskCHighPrio(void *pvParameters) {
+void vTaskCHighPrio(void *pvParameters) { // 5s periodic
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xDelay = pdMS_TO_TICKS(1000); // 1 second delay
-  uint32_t workingFlag = 0;
-  uint32_t printFlag = 0;
+  const TickType_t xDelay = pdMS_TO_TICKS(6000); // 5 second delay
+  uint32_t xExecStart, xExecEnd, xExecTime, xExecSemPre, xExecSemPost,
+      xExecSemTime;
 
   while (1) {
-    vTaskDelayUntil(&xLastWakeTime, xDelay); // Delay for 10 ticks
-    if (workingFlag == 0) {
 
-      if (printFlag != 1) {
-        UARTprintf("Task C: Taking semaphore\n");
-      }
-      if (xSemaphoreTake(s,
-                         (TickType_t)0) ==
-          pdTRUE) { // try to take the semaphore
-        UARTprintf("Task C: WORKING\n");
-        vWorker(5000); // work for 5 seconds
-        UARTprintf("Task C: COMPLETED: Giving semaphore\n");
-        workingFlag = 1;
+    vTaskDelayUntil(&xLastWakeTime, xDelay); // Delay for 5 ms
+    UARTprintf("Task C: STARTING\n");
+    xExecStart = xTaskGetTickCount();
+    xExecSemPre = xTaskGetTickCount();
 
-      } else if (printFlag != 1) {
+    if (xSemaphoreTake(s,
+                       (TickType_t)portMAX_DELAY) ==
+        pdTRUE) { // try to take the semaphore
+      xExecSemPost = xTaskGetTickCount();
+      xExecSemTime =
+          floor(((xExecSemPost - xExecSemPre) * 1000.0) / configTICK_RATE_HZ);
+      UARTprintf("Task C: WORKING: SEMTAKE [%d] MS\n", xExecSemTime);
+      vWorker(3000); // work for 5 seconds
+      while (xSemaphoreGive(s) != pdTRUE)
+        ;
 
-        UARTprintf("Task C: Failed taking semaphore: Getting blocked!\n");
-        printFlag = 1;
-      }
+      xExecEnd = xTaskGetTickCount();
+      xExecTime =
+          floor(((xExecEnd - xExecStart) * 1000.0) / configTICK_RATE_HZ);
+      UARTprintf("Task C: COMPLETED [%d] MS: Giving semaphore\n", xExecTime);
+    } else {
+
+      UARTprintf("Task C: Failed taking semaphore: Getting blocked!\n");
     }
   }
 }
 /*================================================================*/
-void vTaskBMiddlePrio(void *pvParameters) {
+void vTaskBMiddlePrio(void *pvParameters) { // Periodic 13s
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xDelay = pdMS_TO_TICKS(2000); // Delay for 2 seconds
-  uint32_t workingFlag = 0;
-
+  const TickType_t xDelay = pdMS_TO_TICKS(13000); // Delay for 13 seconds
+  uint32_t xExecStart, xExecEnd, xExecTime;
   while (1) {
     vTaskDelayUntil(&xLastWakeTime, xDelay);
-    if (workingFlag == 0) {
-      UARTprintf("Task B: WORKING\n");
-      vWorker(5000); // work for 5 seconds
-      UARTprintf("Task B: COMPLETED\n");
-      workingFlag = 1;
-    }
+    UARTprintf("Task B: STARTED\n");
+    xExecStart = xTaskGetTickCount();
+    UARTprintf("Task B: WORKING\n");
+    vWorker(4000); // work for 5 seconds
+    xExecEnd = xTaskGetTickCount();
+    xExecTime = floor(((xExecEnd - xExecStart) * 1000.0) / configTICK_RATE_HZ);
+    UARTprintf("Task B: COMPLETED [%d] MS\n", xExecTime);
   }
 }
 /*================================================================*/
 void vTaskALowPrio(void *pvParameters) {
 
-  uint32_t workingFlag = 0;
-  BaseType_t xReturn;
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  const TickType_t xDelay = pdMS_TO_TICKS(11000); // Delay for 2 seconds
+
+  uint32_t xExecStart, xExecEnd, xExecTime, xExecSemPre, xExecSemPost,
+      xExecSemTime;
   while (1) {
 
-    if (workingFlag == 0) {
+    vTaskDelayUntil(&xLastWakeTime, xDelay);
+    UARTprintf("Task A: STARTING\n");
+    xExecStart = xTaskGetTickCount();
+    xExecSemPre = xTaskGetTickCount();
+    if ((xSemaphoreTake(s, (TickType_t)portMAX_DELAY)) == pdTRUE) {
+      xExecSemPost = xTaskGetTickCount();
+      xExecSemTime =
+          floor(((xExecSemPost - xExecSemPre) * 1000.0) / configTICK_RATE_HZ);
 
-      UARTprintf("Task A: taking semaphore\n");
-      if ((xReturn = xSemaphoreTake(s, (TickType_t)0)) == pdTRUE) {
-
-        UARTprintf("Task A: WORKING\n");
-        vWorker(5000); // Do some work for 5 seconds
-
-        UARTprintf("Task A: COMPLETED, Giving semaphore\n");
-        xSemaphoreGive(s);
-        workingFlag = 1;
-      } else {
-        UARTprintf("Task A: Unable to take sem\n");
+      UARTprintf("Task A: SEMTAKE [%d] MS\n", xExecSemTime);
+      UARTprintf("Task A: WORKING\n");
+      vWorker(4000); // Do some work for 5 seconds
+      xExecEnd = xTaskGetTickCount();
+      xExecTime =
+          floor(((xExecEnd - xExecStart) * 1000.0) / configTICK_RATE_HZ);
+      UARTprintf("Task A: COMPLETED [%d] MS\n", xExecTime);
+      UARTprintf("Task A: SEMGIVE\n");
+      while (xSemaphoreGive(s) != pdTRUE) {
       }
+    } else {
+      UARTprintf("Task A: Unable to take sem\n");
     }
   }
 }
@@ -154,18 +170,20 @@ int main(void) {
   UARTprintf("\033[2J");
 
   BaseType_t xTaskAReturn =
-      xTaskCreate(vTaskALowPrio, "Task A", 64, (void *)NULL, 1, NULL);
+      xTaskCreate(vTaskALowPrio, "Task A", 200, (void *)NULL, 1, NULL);
   BaseType_t xTaskBReturn =
-      xTaskCreate(vTaskBMiddlePrio, "Task B", 64, (void *)NULL, 2, NULL);
+      xTaskCreate(vTaskBMiddlePrio, "Task B", 200, (void *)NULL, 2, NULL);
   BaseType_t xTaskCReturn =
-      xTaskCreate(vTaskCHighPrio, "Task C", 64, (void *)NULL, 3, NULL);
+      xTaskCreate(vTaskCHighPrio, "Task C", 200, (void *)NULL, 3, NULL);
   if ((xTaskAReturn == pdPASS) && (xTaskBReturn == pdPASS) &&
       (xTaskCReturn == pdPASS)) {
     UARTprintf("Tasks created successfully\n");
   }
-  s = xSemaphoreCreateMutex();
+  s = xSemaphoreCreateBinary();
   if (s == NULL) {
     UARTprintf("Unable to create semaphore\n");
+  }
+  while (xSemaphoreGive(s) != pdTRUE) {
   }
   vTaskStartScheduler();
 }
