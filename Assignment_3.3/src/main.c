@@ -32,7 +32,7 @@
 #include "utils/uartstdio.h"
 
 /* FreeRTOS */
-#include "../inc/FreeRTOSConfig.h"
+#include "FreeRTOSConfig.h"
 #include "FreeRTOS.h"
 #include "portable.h"
 #include "portmacro.h"
