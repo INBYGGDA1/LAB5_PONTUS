@@ -22,6 +22,7 @@
 #include "driverlib/adc.h"
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include "tm4c129_functions.h"
+#include "tm4c129_rtos.h"
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include "utils/uartstdio.h"
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -49,24 +50,6 @@ struct xContext {
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 QueueHandle_t control_queue;
-
-//=============================================================================
-void vWorker(uint32_t runTime) {
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  TickType_t tickIN = xTaskGetTickCount();
-  TickType_t xRunTime = pdMS_TO_TICKS(runTime);
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  while (1) {
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    TickType_t currentTickTime = xTaskGetTickCount();
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Keep working until the specified amount of systemticks
-    // has occured
-    if (currentTickTime - tickIN >= xRunTime) {
-      break;
-    }
-  }
-}
 
 //=============================================================================
 // Task measuring the context switching time
@@ -127,17 +110,16 @@ void vControlTask(void *pvParameters) {
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   for (;;) {
-
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if (i < NUMBER_OF_TASKS) {
       xTaskReturn[i] = xTaskCreate(vTaskContextSwitchTimer, "Generic task", 64,
                                    (void *)&i, 1, &GenericTaskHandle[i]);
+      // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       i++;
     }
-
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Let the tasks do some work
     vTaskDelayUntil(&tickIN, xRunTime);
-
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // We only print if new contextInfo from the generic task has been sent.
     if (xQueueReceive(control_queue, &contextInfo, portMAX_DELAY) == pdPASS) {
@@ -153,16 +135,16 @@ void vControlTask(void *pvParameters) {
 //=============================================================================
 int main(void) {
   uint32_t systemClock;
-
-  systemClock = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN |
-                                    SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480),
-                                   120000000);
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ConfigureSystemClock(120000000, &systemClock);
   ConfigureUART();
   UARTClearScreen();
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   control_queue = xQueueCreate(QUEUE_SIZE, sizeof(struct xContext));
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (xTaskCreate(vControlTask, "Control Task", 256, NULL, 2, NULL) == pdPASS) {
     UARTprintf("Control task succesfully created\n");
   }
-
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   vTaskStartScheduler();
 }
